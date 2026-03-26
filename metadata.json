@@ -1,5 +1,5 @@
 {
-  "name": "AutoMind",
-  "description": "AI-powered car decision engine that helps you find the perfect vehicle through a guided wizard experience.",
+  "name": "AutoMind - AI Automobilių Patarėjas",
+  "description": "AutoMind - išmanus dirbtinio intelekto asistentas, padedantis rasti idealų automobilį pagal jūsų poreikius ir biudžetą.",
   "requestFramePermissions": []
 }
