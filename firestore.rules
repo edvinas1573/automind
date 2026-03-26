@@ -1,0 +1,42 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        request.auth.token.email == "edvinas1573@gmail.com" && 
+        request.auth.token.email_verified == true;
+    }
+
+    // Assumed Data Model
+    // Collection: cached_cars
+    // Document ID: {carKey}
+    // Fields:
+    //   - name: string (required)
+    //   - year: string (required)
+    //   - imageUrls: list of strings (required)
+    //   - createdAt: timestamp (required)
+
+    match /cached_cars/{carKey} {
+      // Allow anyone to read cached car images to improve performance for all users
+      allow read: if true;
+      // Allow authenticated users to contribute to the cache
+      allow create, update: if isAuthenticated() && 
+        request.resource.data.name is string &&
+        request.resource.data.year is string &&
+        request.resource.data.imageUrls is list &&
+        request.resource.data.createdAt is timestamp;
+      // ONLY admin can delete to trigger regeneration
+      allow delete: if isAdmin();
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
