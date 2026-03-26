@@ -1,28 +1,12 @@
 import React from "react";
 import { motion } from "motion/react";
 import { CarRecommendation } from "../types";
-import { Info, RefreshCw } from "lucide-react";
-import { deleteCarCache } from "../services/geminiService";
+import { Info } from "lucide-react";
+import { CarGame } from "./CarGame";
 
-export function ResultCard({ car, isAdmin }: { car: CarRecommendation; isAdmin?: boolean; key?: string | number }) {
+export function ResultCard({ car }: { car: CarRecommendation; key?: string | number }) {
   const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
-  const [isRegenerating, setIsRegenerating] = React.useState(false);
   const images = car.images && car.images.length > 0 ? car.images : [car.imageUrl];
-
-  const handleRegenerate = async () => {
-    if (!window.confirm(`Ar tikrai norite pergeneruoti ${car.name} nuotraukas?`)) return;
-    
-    setIsRegenerating(true);
-    try {
-      await deleteCarCache(car.name, car.year);
-      alert("Talpykla išvalyta. Prašome perkrauti puslapį arba atlikti paiešką iš naujo, kad pamatytumėte naujas nuotraukas.");
-    } catch (error) {
-      console.error(error);
-      alert("Klaida trinant talpyklą.");
-    } finally {
-      setIsRegenerating(false);
-    }
-  };
 
   return (
     <motion.div
@@ -60,7 +44,7 @@ export function ResultCard({ car, isAdmin }: { car: CarRecommendation; isAdmin?:
               <button
                 key={i}
                 onClick={() => setCurrentImageIndex(i)}
-                className={`w-2 h-2 rounded-full transition-all ${
+                className={`w-2 h-2 rounded-full transition-all cursor-pointer ${
                   i === currentImageIndex 
                     ? "bg-white w-4" 
                     : "bg-white/40 hover:bg-white/60"
@@ -71,16 +55,16 @@ export function ResultCard({ car, isAdmin }: { car: CarRecommendation; isAdmin?:
         )}
         
         {/* Specs Overlay on Hover */}
-        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-center p-8 z-10">
-          <h4 className="text-white text-xs font-bold uppercase tracking-widest mb-4 opacity-50">Techninės specifikacijos</h4>
-          <ul className="grid grid-cols-1 gap-2">
+        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-center p-4 md:p-8 z-10">
+          <h4 className="text-white text-[10px] md:text-xs font-bold uppercase tracking-widest mb-2 md:mb-4 opacity-50">Techninės specifikacijos</h4>
+          <ul className="grid grid-cols-1 gap-1 md:gap-2">
             {car.specs?.map((spec, i) => (
               <motion.li 
                 key={i}
                 initial={{ x: -10, opacity: 0 }}
                 whileInView={{ x: 0, opacity: 1 }}
                 transition={{ delay: i * 0.05 }}
-                className="text-white text-sm flex items-center gap-2"
+                className="text-white text-[11px] md:text-sm flex items-center gap-2"
               >
                 <div className="w-1 h-1 rounded-full bg-white/50" />
                 {spec}
@@ -94,21 +78,6 @@ export function ResultCard({ car, isAdmin }: { car: CarRecommendation; isAdmin?:
             Geriausias atitikmuo
           </div>
         )}
-
-        {/* Admin Regenerate Button */}
-        {isAdmin && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleRegenerate();
-            }}
-            disabled={isRegenerating}
-            className="absolute top-4 left-4 z-30 p-2 bg-white/20 backdrop-blur-md hover:bg-white/40 text-white rounded-full transition-all border border-white/20 shadow-lg"
-            title="Pergeneruoti nuotraukas"
-          >
-            <RefreshCw className={`w-4 h-4 ${isRegenerating ? "animate-spin" : ""}`} />
-          </button>
-        )}
       </div>
 
       <div className="p-8">
@@ -121,7 +90,7 @@ export function ResultCard({ car, isAdmin }: { car: CarRecommendation; isAdmin?:
               <span>{car.mileage}</span>
             </div>
           </div>
-          <div className="text-3xl font-bold">{car.price}</div>
+          <div className="text-3xl font-bold whitespace-nowrap">{car.price}</div>
         </div>
 
         <div className={`p-6 rounded-2xl ${car.isBestMatch ? "bg-zinc-800" : "bg-zinc-100"}`}>
@@ -147,16 +116,16 @@ export function LoadingScreen() {
   ];
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] text-center">
-      <div className="relative w-24 h-24 mb-12">
+    <div className="flex flex-col items-center justify-center min-h-[80vh] text-center py-12">
+      <div className="relative w-20 h-20 mb-8">
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
           className="w-full h-full border-4 border-zinc-200 border-t-black rounded-full"
         />
       </div>
-      
-      <div className="h-8 overflow-hidden">
+
+      <div className="h-8 overflow-hidden mb-12">
         <motion.div
           animate={{ y: [0, -32, -64, -96, -128] }}
           transition={{ 
@@ -172,6 +141,11 @@ export function LoadingScreen() {
             </div>
           ))}
         </motion.div>
+      </div>
+
+      <div className="w-full max-w-md p-6 bg-white rounded-3xl border border-zinc-100 shadow-sm">
+        <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-4">Kol laukiate – pajudėkite!</div>
+        <CarGame />
       </div>
     </div>
   );

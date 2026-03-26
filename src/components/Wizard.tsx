@@ -73,7 +73,7 @@ export function StepScreen({
         {onBack && (
           <button
             onClick={onBack}
-            className="px-8 py-4 rounded-full border border-zinc-200 text-zinc-500 hover:text-black hover:border-zinc-400 transition-all font-medium"
+            className="px-8 py-4 rounded-full border border-zinc-200 text-zinc-500 hover:text-black hover:border-zinc-400 transition-all font-medium cursor-pointer"
           >
             Atgal
           </button>
@@ -81,7 +81,7 @@ export function StepScreen({
         {showNext && onNext && (
           <button
             onClick={onNext}
-            className="px-12 py-4 rounded-full bg-black text-white font-bold hover:bg-zinc-800 transition-all shadow-lg shadow-black/5"
+            className="px-12 py-4 rounded-full bg-black text-white font-bold hover:bg-zinc-800 transition-all shadow-lg shadow-black/5 cursor-pointer"
           >
             {nextLabel}
           </button>
@@ -107,7 +107,7 @@ export function OptionCard({ label, description, icon, selected, onClick }: Opti
     <button
       onClick={onClick}
       className={`
-        w-full p-3 md:p-6 text-left rounded-2xl border-2 transition-all duration-300 group
+        w-full p-3 md:p-6 text-left rounded-2xl border-2 transition-all duration-300 group cursor-pointer
         ${selected 
           ? "bg-black border-black text-white" 
           : "bg-white border-zinc-200 text-black hover:border-zinc-400 shadow-sm"}

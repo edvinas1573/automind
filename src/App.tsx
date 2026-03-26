@@ -3,31 +3,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Range, getTrackBackground, Direction } from 'react-range';
 import { StepScreen, OptionCard, ProgressBar } from './components/Wizard';
 import { ResultCard, LoadingScreen } from './components/Results';
 import { CAR_TYPES, USAGE_OPTIONS, PRIORITY_OPTIONS, FUEL_TYPES, UserProfile, AIResponse } from './types';
 import { analyzeCars } from './services/geminiService';
-import { Sparkles, Car, ChevronRight, ArrowDown, LogIn, LogOut, User } from 'lucide-react';
-import { auth, loginWithGoogle, checkIsAdmin } from './firebase';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { Sparkles, Car, ChevronRight, ArrowDown } from 'lucide-react';
 
 export default function App() {
   const [step, setStep] = useState(0); // 0 is landing
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<AIResponse | null>(null);
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setIsAdmin(checkIsAdmin(u));
-    });
-    return () => unsubscribe();
-  }, []);
   
   const [profile, setProfile] = useState<UserProfile>({
     budget: 25000,
@@ -71,19 +59,6 @@ export default function App() {
     });
   };
 
-  const handleLogin = async () => {
-    try {
-      await loginWithGoogle();
-    } catch (error: any) {
-      if (error.code === 'auth/popup-closed-by-user') {
-        console.log('Vartotojas uždarė prisijungimo langą.');
-      } else {
-        console.error('Prisijungimo klaida:', error);
-        alert('Įvyko klaida bandant prisijungti. Bandykite dar kartą.');
-      }
-    }
-  };
-
   return (
     <div className="min-h-screen bg-[#f9f9f9] text-black selection:bg-black selection:text-white font-sans">
       {step > 0 && step < 7 && <ProgressBar current={step} total={6} />}
@@ -110,7 +85,7 @@ export default function App() {
               </p>
               <button
                 onClick={nextStep}
-                className="group flex items-center gap-3 px-12 py-6 bg-black text-white text-xl font-bold rounded-full hover:bg-zinc-800 transition-all shadow-2xl shadow-black/10"
+                className="group flex items-center gap-3 px-12 py-6 bg-black text-white text-xl font-bold rounded-full hover:bg-zinc-800 transition-all shadow-2xl shadow-black/10 cursor-pointer"
               >
                 Pradėti paiešką
                 <ChevronRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
@@ -395,14 +370,14 @@ export default function App() {
 
               <div className="space-y-8">
                 {results.recommendations.filter(r => r.isBestMatch).map((car, i) => (
-                  <ResultCard key={i} car={car} isAdmin={isAdmin} />
+                  <ResultCard key={i} car={car} />
                 ))}
 
                 <div className="pt-12 border-t border-zinc-200">
                   <h3 className="text-2xl font-bold mb-8">Puikios alternatyvos</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {results.recommendations.filter(r => !r.isBestMatch).map((car, i) => (
-                      <ResultCard key={i} car={car} isAdmin={isAdmin} />
+                      <ResultCard key={i} car={car} />
                     ))}
                   </div>
                 </div>
@@ -423,7 +398,7 @@ export default function App() {
                       maxYear: 2026,
                     });
                   }}
-                  className="px-12 py-4 rounded-full border border-zinc-200 text-zinc-600 hover:text-black hover:border-zinc-400 transition-all font-bold"
+                  className="px-12 py-4 rounded-full border border-zinc-200 text-zinc-600 hover:text-black hover:border-zinc-400 transition-all font-bold cursor-pointer"
                 >
                   Pradėti iš naujo
                 </button>
@@ -433,34 +408,8 @@ export default function App() {
         </AnimatePresence>
       </main>
 
-      {/* Footer / Admin Login */}
       <footer className="container mx-auto px-4 py-8 border-t border-zinc-100 flex justify-between items-center opacity-50 hover:opacity-100 transition-opacity">
         <p className="text-xs font-medium text-zinc-500">© 2026 AutoMind AI</p>
-        <div className="flex items-center gap-4">
-          {user ? (
-            <div className="flex items-center gap-2">
-              <div className="flex flex-col items-end">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Prisijungta kaip</span>
-                <span className="text-xs font-bold">{user.email} {isAdmin && "(Admin)"}</span>
-              </div>
-              <button 
-                onClick={() => auth.signOut()}
-                className="p-2 hover:bg-zinc-100 rounded-full transition-colors"
-                title="Atsijungti"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
-          ) : (
-            <button 
-              onClick={handleLogin}
-              className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest hover:text-black transition-colors"
-            >
-              <LogIn className="w-4 h-4" />
-              Admin prisijungimas
-            </button>
-          )}
-        </div>
       </footer>
     </div>
   );

@@ -1,9 +1,5 @@
-import { GoogleGenAI, Modality } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { AI_SCHEMA, UserProfile, CarRecommendation, AIResponse } from "../types";
-import { db, storage, auth } from "../firebase";
-import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
-import { ref, uploadString, getDownloadURL, deleteObject, listAll } from "firebase/storage";
-import { signInAnonymously } from "firebase/auth";
 
 const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -11,9 +7,11 @@ async function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function generateCarImage(carName: string, angle: string = "3/4 front", retries = 1): Promise<string> {
-  // Prioritize 2.5-flash-image as it works with the default environment key
-  const models = ['gemini-2.5-flash-image', 'gemini-3.1-flash-image-preview'];
+async function generateCarImage(carName: string, angle: string = "3/4 front", specs: string[] = [], retries = 1): Promise<string> {
+  // Use only 2.5-flash-image as requested by user
+  const models = ['gemini-2.5-flash-image'];
+  
+  const specsText = specs.length > 0 ? `. Key features: ${specs.join(', ')}` : '';
   
   for (let i = 0; i <= retries; i++) {
     const model = models[i % models.length];
@@ -28,20 +26,18 @@ async function generateCarImage(carName: string, angle: string = "3/4 front", re
         }
       };
 
-      if (model.includes('3.1')) {
-        config.imageConfig.imageSize = "1K";
-      }
-
       const response = await Promise.race([
         genAI.models.generateContent({
           model: model,
           contents: {
-            parts: [{ text: `A photo of a ${carName}, ${angle} view.` }]
+            parts: [{ 
+              text: `Professional high-end automotive studio photography of a ${carName}${specsText}. ${angle} view. Clean minimalist white studio background, soft cinematic studio lighting with realistic reflections, 8k resolution, photorealistic, highly detailed, sharp focus, centered composition, no people, professional commercial style. NO TEXT, NO LABELS, NO DESCRIPTIONS, NO WATERMARKS, NO TYPOGRAPHY.` 
+            }]
           },
           config: config
         }),
         new Promise<any>((_, reject) =>
-          setTimeout(() => reject(new Error("TIMEOUT")), 20000)
+          setTimeout(() => reject(new Error("TIMEOUT")), 25000)
         )
       ]);
 
@@ -85,14 +81,14 @@ async function generateCarImage(carName: string, angle: string = "3/4 front", re
 /**
  * 5. IMAGE GENERATION (Client-side)
  */
-async function generateCarImages(car: { name: string; year: string }, limit: number = 1): Promise<string[]> {
+async function generateCarImages(car: { name: string; year: string; specs?: string[] }, limit: number = 1): Promise<string[]> {
   const allAngles = ["3/4 front", "side", "rear"];
   const angles = allAngles.slice(0, limit);
   const images: string[] = [];
   const fullName = `${car.year} ${car.name}`;
 
   for (const angle of angles) {
-    const img = await generateCarImage(fullName, angle);
+    const img = await generateCarImage(fullName, angle, car.specs || []);
     if (img && !img.includes('loremflickr')) {
       images.push(img);
     }
@@ -104,106 +100,21 @@ async function generateCarImages(car: { name: string; year: string }, limit: num
 }
 
 /**
- * Helper to generate a unique key for a car
+ * 4. MAIN FUNCTION: getCarImages
  */
-function generateCarKey(name: string, year: string) {
-  return `${name}-${year}`.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-}
-
-/**
- * 4. MAIN FUNCTION: getCarImages (with Firebase caching)
- */
-export async function getCarImages(car: { name: string; year: string }, limit: number = 1): Promise<string[]> {
-  const carKey = generateCarKey(car.name, car.year);
-  let generatedImages: string[] = [];
-  
+export async function getCarImages(car: { name: string; year: string; specs?: string[] }, limit: number = 1): Promise<string[]> {
   try {
-    // 1. Check Firestore for existing metadata
-    const carDocRef = doc(db, "cached_cars", carKey);
-    const carDoc = await getDoc(carDocRef);
-
-    if (carDoc.exists()) {
-      const data = carDoc.data();
-      // If we have enough images cached, return them
-      if (data.imageUrls && data.imageUrls.length >= limit) {
-        console.log("Using Firebase cached images for:", car.name);
-        return data.imageUrls;
-      }
-    }
-  } catch (error) {
-    console.warn("Firestore cache read failed, proceeding with generation:", error);
-  }
-
-  try {
-    // 2. If not -> generate with Gemini
-    console.log("Firebase cache miss or insufficient images, generating for:", car.name);
-    generatedImages = await generateCarImages(car, limit);
+    console.log("Generating images for:", car.name);
+    const generatedImages = await generateCarImages(car, limit);
     
     if (generatedImages.length === 0) {
       return [`https://loremflickr.com/800/450/car,${car.name.replace(/\s+/g, ',')}`];
     }
 
-    // 3. Attempt to cache in Firebase, but don't fail if it fails
-    try {
-      if (!auth.currentUser) {
-        // Race sign-in against a 5-second timeout
-        await Promise.race([
-          signInAnonymously(auth),
-          new Promise((_, reject) => setTimeout(() => reject(new Error("Firebase Auth timeout")), 5000))
-        ]);
-      }
-
-      const downloadUrls: string[] = [];
-      for (let i = 0; i < generatedImages.length; i++) {
-        const storageRef = ref(storage, `cars/${carKey}/${i}.png`);
-        await uploadString(storageRef, generatedImages[i], 'data_url');
-        const url = await getDownloadURL(storageRef);
-        downloadUrls.push(url);
-      }
-
-      // 4. Save metadata to Firestore
-      const carDocRef = doc(db, "cached_cars", carKey);
-      await setDoc(carDocRef, {
-        name: car.name,
-        year: car.year,
-        imageUrls: downloadUrls,
-        createdAt: serverTimestamp()
-      }, { merge: true });
-      
-      return downloadUrls;
-    } catch (cacheError) {
-      console.error("Failed to cache images in Firebase:", cacheError);
-      // Return the raw base64 images if caching fails
-      return generatedImages;
-    }
+    return generatedImages;
   } catch (error) {
     console.error("Error in getCarImages (Gemini):", error);
     return [`https://loremflickr.com/800/450/car,${car.name.replace(/\s+/g, ',')}`];
-  }
-}
-
-/**
- * Admin function to delete car cache (Firestore + Storage)
- */
-export async function deleteCarCache(name: string, year: string): Promise<void> {
-  const carKey = generateCarKey(name, year);
-  
-  try {
-    // 1. Delete Firestore document
-    const carDocRef = doc(db, "cached_cars", carKey);
-    await deleteDoc(carDocRef);
-    console.log("Firestore metadata deleted for:", carKey);
-
-    // 2. Delete Storage objects
-    const storageFolderRef = ref(storage, `cars/${carKey}`);
-    const listResult = await listAll(storageFolderRef);
-    
-    const deletePromises = listResult.items.map(item => deleteObject(item));
-    await Promise.all(deletePromises);
-    console.log("Storage images deleted for:", carKey);
-  } catch (error) {
-    console.error("Error deleting car cache:", error);
-    throw error;
   }
 }
 
@@ -217,7 +128,7 @@ export async function analyzeCars(profile: UserProfile, retries = 3): Promise<AI
     VISI atsakymai (pavadinimai, paaiškinimai, specifikacijos) PRIVALO būti lietuvių kalba.
     
     Vartotojo profilis:
-    - Biudžetas: $${profile.budget}
+    - Biudžetas: ${profile.budget} €
     - Pageidaujami tipai: ${profile.carType.join(', ')}
     - Pagrindinis naudojimas: ${profile.usage}
     - Pagrindiniai prioritetai: ${profile.priority.join(', ')}
@@ -227,11 +138,12 @@ export async function analyzeCars(profile: UserProfile, retries = 3): Promise<AI
     
     Reikalavimai:
     1. Pateikite 1 „Geriausią atitikmenį“ ir 2 alternatyvas.
-    2. Kiekvienam automobiliui nurodykite pavadinimą, numatomą kainą, metus, rida ir žmogišką paaiškinimą, kodėl jis tinka vartotojo poreikiams.
+    2. Kiekvienam automobiliui nurodykite pavadinimą, numatomą kainą (tik skaičius ir € ženklas, pvz. „15 400 €“), metus, rida ir žmogišką paaiškinimą, kodėl jis tinka vartotojo poreikiams.
     3. SVARBU: Kainos PRIVALO atitikti Lietuvos rinką (naudokite Autoplius.lt ir Autogidas.lt duomenis kaip pagrindą).
     4. Kiekvienam automobiliui pateikite „specs“ masyvą su 5-7 pagrindinėmis techninėmis detalėmis lietuvių kalba (pvz., „Variklis: 2.0L Dyzelinas“, „Galia: 140 kW“, „Vidutinės sąnaudos: 5.5 l/100km“).
     5. Užtikrinkite, kad kainos būtų realistiškos nurodytam biudžetui Lietuvos rinkoje.
     6. Venkite blogų sandorių ar nepatikimų modelių.
+    7. Kaina visada turi būti nurodyta su € ženklu pabaigoje.
   `;
 
   let lastError: any = null;
@@ -263,7 +175,7 @@ export async function analyzeCars(profile: UserProfile, retries = 3): Promise<AI
           await delay(index * 800);
           
           console.time(`ImageGen-${car.name}`);
-          const images = await getCarImages({ name: car.name, year: car.year }, 1);
+          const images = await getCarImages({ name: car.name, year: car.year, specs: car.specs }, 1);
           console.timeEnd(`ImageGen-${car.name}`);
 
           return { 
