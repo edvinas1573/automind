@@ -8,71 +8,33 @@ async function delay(ms: number) {
 }
 
 async function generateCarImage(carName: string, angle: string = "3/4 front", specs: string[] = [], retries = 1): Promise<string> {
-  // Use only 2.5-flash-image as requested by user
-  const models = ['gemini-2.5-flash-image'];
-  
-  const specsText = specs.length > 0 ? `. Key features: ${specs.join(', ')}` : '';
-  
   for (let i = 0; i <= retries; i++) {
-    const model = models[i % models.length];
     try {
-      if (i === 0) await delay(Math.random() * 300);
-
-      console.log(`[ImageGen] Requesting: ${carName} (${angle}), attempt ${i+1} using ${model}`);
+      console.log(`[ImageGen] Requesting via backend: ${carName} (${angle}), attempt ${i+1}`);
       
-      const config: any = {
-        imageConfig: {
-          aspectRatio: "16:9"
-        }
-      };
+      const response = await fetch('/api/generate-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ carName, angle, specs })
+      });
 
-      const response = await Promise.race([
-        genAI.models.generateContent({
-          model: model,
-          contents: {
-            parts: [{ 
-              text: `Professional high-end automotive studio photography of a ${carName}${specsText}. ${angle} view. Clean minimalist white studio background, soft cinematic studio lighting with realistic reflections, 8k resolution, photorealistic, highly detailed, sharp focus, centered composition, no people, professional commercial style. NO TEXT, NO LABELS, NO DESCRIPTIONS, NO WATERMARKS, NO TYPOGRAPHY.` 
-            }]
-          },
-          config: config
-        }),
-        new Promise<any>((_, reject) =>
-          setTimeout(() => reject(new Error("TIMEOUT")), 25000)
-        )
-      ]);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-      const candidate = response.candidates?.[0];
-      const parts = candidate?.content?.parts || [];
-      const imagePart = parts.find(p => p.inlineData);
+      const result = await response.json();
       
-      if (imagePart?.inlineData) {
-        console.log(`[ImageGen] SUCCESS for ${carName} using ${model}`);
-        return `data:image/png;base64,${imagePart.inlineData.data}`;
+      if (result.data) {
+        console.log(`[ImageGen] SUCCESS for ${carName}`);
+        return `data:image/png;base64,${result.data}`;
       }
       
-      console.warn(`[ImageGen] No image data from ${model}. FinishReason: ${candidate?.finishReason}`);
+      console.warn(`[ImageGen] No image data from backend.`);
     } catch (error: any) {
-      console.error(`[ImageGen] Error for ${carName} using ${model}:`, error.message || JSON.stringify(error));
-      
-      if (error.message === "TIMEOUT") {
-        console.warn(`[ImageGen] Timeout for ${model}. Skipping retries for this car.`);
-        break; // Don't retry on timeout
-      }
-
-      const errorStr = JSON.stringify(error).toLowerCase();
-      
-      if (error?.status === 403 || errorStr.includes("403") || errorStr.includes("forbidden")) {
-        console.warn(`[ImageGen] Model ${model} is forbidden (403).`);
-        if (i < retries) continue;
-      }
-
-      if ((errorStr.includes("quota") || errorStr.includes("429")) && i < retries) {
-        const waitTime = (i + 1) * 2000;
-        await delay(waitTime);
-        continue;
-      }
-      
-      break;
+      console.error(`[ImageGen] Error for ${carName}:`, error.message);
+      if (i < retries) await delay(1000);
     }
   }
   return `https://loremflickr.com/800/450/car,${carName.replace(/\s+/g, ',')}`;
