@@ -18,13 +18,13 @@ export function CarGame() {
   const carPos = useRef({ x: 50, y: groundY - carHeight, vy: 0, isJumping: false });
   const obstacles = useRef<{ x: number, type: 'cone' | 'pothole' }[]>([]);
   const frameCount = useRef(0);
-  const speed = useRef(7);
+  const speed = useRef(5);
 
   const resetGame = () => {
     carPos.current = { x: 50, y: groundY - carHeight, vy: 0, isJumping: false };
     obstacles.current = [];
     frameCount.current = 0;
-    speed.current = 7;
+    speed.current = 5;
     setScore(0);
     setGameState('playing');
   };
@@ -64,9 +64,9 @@ export function CarGame() {
       }
 
       // Spawn obstacles
-      if (frameCount.current % 80 === 0) {
+      if (frameCount.current % 100 === 0) {
         obstacles.current.push({ x: canvas.width, type: Math.random() > 0.5 ? 'cone' : 'pothole' });
-        speed.current += 0.2; // Gradually increase speed
+        speed.current += 0.1; // Gradually increase speed
       }
 
       // Update obstacles
