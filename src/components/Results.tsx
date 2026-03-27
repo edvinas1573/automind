@@ -33,7 +33,7 @@ export function ResultCard({ car }: { car: CarRecommendation; key?: string | num
           referrerPolicy="no-referrer"
           onError={(e) => {
             const target = e.target as HTMLImageElement;
-            target.src = `https://loremflickr.com/800/450/car,${car.name.replace(/\s+/g, ',')}`;
+            target.src = `https://img.freepik.com/premium-vector/side-view-black-car-silhouette-dark-background_148087-13.jpg`;
           }}
         />
 

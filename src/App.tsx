@@ -10,12 +10,22 @@ import { StepScreen, OptionCard, ProgressBar } from './components/Wizard';
 import { ResultCard, LoadingScreen } from './components/Results';
 import { CAR_TYPES, USAGE_OPTIONS, PRIORITY_OPTIONS, FUEL_TYPES, UserProfile, AIResponse } from './types';
 import { analyzeCars } from './services/geminiService';
-import { Sparkles, Car, ChevronRight, ArrowDown } from 'lucide-react';
+import { Sparkles, Car, ChevronRight, ArrowDown, Key } from 'lucide-react';
+
+declare global {
+  interface Window {
+    aistudio: {
+      hasSelectedApiKey: () => Promise<boolean>;
+      openSelectKey: () => Promise<void>;
+    };
+  }
+}
 
 export default function App() {
   const [step, setStep] = useState(0); // 0 is landing
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<AIResponse | null>(null);
+  const [hasApiKey, setHasApiKey] = useState(false);
   
   const [profile, setProfile] = useState<UserProfile>({
     budget: 25000,
@@ -25,6 +35,12 @@ export default function App() {
     fuelType: '',
     minYear: 2015,
     maxYear: 2026,
+  });
+
+  useState(() => {
+    if (typeof window !== 'undefined' && window.aistudio) {
+      window.aistudio.hasSelectedApiKey().then(setHasApiKey);
+    }
   });
 
   const nextStep = () => setStep(s => s + 1);
@@ -83,6 +99,29 @@ export default function App() {
                 DI agentas, kuris padeda nuspręsti <span className="text-black">kokį automobilį pirkti</span>. 
                 Sistemingas, protingas ir nešališkas.
               </p>
+
+              {!hasApiKey && (
+                <div className="mb-8 p-6 bg-orange-50 border border-orange-100 rounded-3xl max-w-md text-center">
+                  <Key className="w-8 h-8 text-orange-500 mx-auto mb-4" />
+                  <h3 className="text-lg font-bold text-orange-900 mb-2">Reikalingas Google Cloud ryšys</h3>
+                  <p className="text-sm text-orange-800 mb-6">
+                    Norint gauti tikras nuotraukas iš Google Images, turite prijungti savo API raktą.
+                  </p>
+                  <button
+                    onClick={async () => {
+                      await window.aistudio.openSelectKey();
+                      setHasApiKey(true);
+                    }}
+                    className="w-full py-3 bg-orange-500 text-white font-bold rounded-xl hover:bg-orange-600 transition-all"
+                  >
+                    Prijungti raktą
+                  </button>
+                  <p className="mt-4 text-[10px] text-orange-700">
+                    Daugiau informacijos apie <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="underline">atsiskaitymą</a>.
+                  </p>
+                </div>
+              )}
+
               <button
                 onClick={nextStep}
                 className="group flex items-center gap-3 px-12 py-6 bg-black text-white text-xl font-bold rounded-full hover:bg-zinc-800 transition-all shadow-2xl shadow-black/10 cursor-pointer"
@@ -363,9 +402,15 @@ export default function App() {
                 <h1 className="text-5xl md:text-6xl font-black tracking-tighter mb-4">
                   Geriausi atitikmenys
                 </h1>
-                <p className="text-zinc-600 text-lg">
-                  Remdamiesi jūsų profiliu, parinkome geriausiai jūsų gyvenimo būdui tinkančius automobilius.
-                </p>
+                {results.message ? (
+                  <div className="max-w-2xl mx-auto p-6 bg-orange-50 border border-orange-100 rounded-3xl text-orange-900 text-lg font-medium mb-8">
+                    {results.message}
+                  </div>
+                ) : (
+                  <p className="text-zinc-600 text-lg">
+                    Remdamiesi jūsų profiliu, parinkome geriausiai jūsų gyvenimo būdui tinkančius automobilius.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-8">
