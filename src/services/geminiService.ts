@@ -37,7 +37,7 @@ async function generateCarImage(carName: string, angle: string = "3/4 front", sp
       if (i < retries) await delay(1000);
     }
   }
-  return `https://img.freepik.com/premium-vector/side-view-black-car-silhouette-dark-background_148087-13.jpg`;
+  return `https://loremflickr.com/800/450/car,${carName.replace(/\s+/g, ',')}`;
 }
 
 /**
@@ -70,13 +70,13 @@ export async function getCarImages(car: { name: string; year: string; specs?: st
     const generatedImages = await generateCarImages(car, limit);
     
     if (generatedImages.length === 0) {
-      return [`https://img.freepik.com/premium-vector/side-view-black-car-silhouette-dark-background_148087-13.jpg`];
+      return [`https://loremflickr.com/800/450/car,${car.name.replace(/\s+/g, ',')}`];
     }
 
     return generatedImages;
   } catch (error) {
     console.error("Error in getCarImages (Gemini):", error);
-    return [`https://img.freepik.com/premium-vector/side-view-black-car-silhouette-dark-background_148087-13.jpg`];
+    return [`https://loremflickr.com/800/450/car,${car.name.replace(/\s+/g, ',')}`];
   }
 }
 
@@ -104,9 +104,8 @@ export async function analyzeCars(profile: UserProfile, retries = 3): Promise<AI
     3. SVARBU: Kainos PRIVALO atitikti Lietuvos rinką (naudokite Autoplius.lt ir Autogidas.lt duomenis kaip pagrindą).
     4. Kiekvienam automobiliui pateikite „specs“ masyvą su 5-7 pagrindinėmis techninėmis detalėmis lietuvių kalba (pvz., „Variklis: 2.0L Dyzelinas“, „Galia: 140 kW“, „Vidutinės sąnaudos: 5.5 l/100km“).
     5. Užtikrinkite, kad kainos būtų realistiškos nurodytam biudžetui Lietuvos rinkoje.
-    6. Jei vartotojo biudžetas yra akivaizdžiai per mažas pageidaujamiems metams ar tipui (pvz., 2024 m. visureigis už 5000 €), būtinai užpildykite „message“ lauką lietuvių kalba, paaiškindami, kad tokio automobilio už tokią kainą rasti neįmanoma, ir pasiūlykite geriausias įmanomas alternatyvas.
-    7. Venkite blogų sandorių ar nepatikimų modelių.
-    8. Kaina visada turi būti nurodyta su € ženklu pabaigoje.
+    6. Venkite blogų sandorių ar nepatikimų modelių.
+    7. Kaina visada turi būti nurodyta su € ženklu pabaigoje.
   `;
 
   let lastError: any = null;
@@ -130,7 +129,6 @@ export async function analyzeCars(profile: UserProfile, retries = 3): Promise<AI
       
       const data = JSON.parse(text);
       const recommendations = data.recommendations as CarRecommendation[];
-      const message = data.message as string | undefined;
 
       // Generate images in parallel
       const imagePromises = recommendations.map(async (car, index) => {
@@ -149,7 +147,7 @@ export async function analyzeCars(profile: UserProfile, retries = 3): Promise<AI
           };
         } catch (err) {
           console.warn(`Image generation failed or timed out for ${car.name}:`, err);
-          const placeholder = `https://img.freepik.com/premium-vector/side-view-black-car-silhouette-dark-background_148087-13.jpg`;
+          const placeholder = `https://loremflickr.com/800/450/car,${car.name.replace(/\s+/g, ',')}`;
           return {
             ...car,
             imageUrl: placeholder,
@@ -159,7 +157,7 @@ export async function analyzeCars(profile: UserProfile, retries = 3): Promise<AI
       });
 
       const recommendationsWithImages = await Promise.all(imagePromises);
-      return { recommendations: recommendationsWithImages, message };
+      return { recommendations: recommendationsWithImages };
     } catch (error: any) {
       lastError = error;
       const isQuotaError = 

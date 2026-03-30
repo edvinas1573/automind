@@ -25,7 +25,6 @@ export interface CarRecommendation {
 
 export interface AIResponse {
   recommendations: CarRecommendation[];
-  message?: string;
 }
 
 export const CAR_TYPES = [
@@ -64,10 +63,6 @@ export const FUEL_TYPES = [
 export const AI_SCHEMA = {
   type: Type.OBJECT,
   properties: {
-    message: { 
-      type: Type.STRING, 
-      description: "If the user's criteria are unrealistic or no perfect matches are found (e.g., budget too low for the requested year/type), provide a polite message in Lithuanian explaining this (e.g., 'Deja, pagal jūsų kriterijus tikslių atitikmenų rasti nepavyko, tačiau štai geriausios alternatyvos:'). Leave empty if matches are good." 
-    },
     recommendations: {
       type: Type.ARRAY,
       items: {
