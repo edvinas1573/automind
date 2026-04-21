@@ -10,21 +10,20 @@ export function CarGame() {
   const carHeight = 30;
   const obstacleWidth = 30;
   const obstacleHeight = 30;
-  const jumpStrength = -8; // Slightly reduced for better feel
+  const gravity = 0.6;
+  const jumpStrength = -10;
   const groundY = 150;
 
   // Game variables (refs to avoid re-renders)
   const carPos = useRef({ x: 50, y: groundY - carHeight, vy: 0, isJumping: false });
   const obstacles = useRef<{ x: number, type: 'cone' | 'pothole' }[]>([]);
-  const distanceTraveled = useRef(0);
-  const nextObstacleAt = useRef(300);
+  const frameCount = useRef(0);
   const speed = useRef(1.5);
 
   const resetGame = () => {
     carPos.current = { x: 50, y: groundY - carHeight, vy: 0, isJumping: false };
     obstacles.current = [];
-    distanceTraveled.current = 0;
-    nextObstacleAt.current = 300;
+    frameCount.current = 0;
     speed.current = 1.5;
     setScore(0);
     setGameState('playing');
@@ -52,15 +51,10 @@ export function CarGame() {
     const update = () => {
       if (gameState === 'gameover') return;
 
-      distanceTraveled.current += speed.current;
-      
-      // Dynamic gravity based on speed to keep jump distance consistent
-      // Distance = speed * (2 * jumpStrength / gravity)
-      // We want Distance ~ 180px to safely clear obstacles
-      const dynamicGravity = (Math.abs(jumpStrength) * 2 * speed.current) / 180;
+      frameCount.current++;
       
       // Update car
-      carPos.current.vy += dynamicGravity;
+      carPos.current.vy += gravity;
       carPos.current.y += carPos.current.vy;
 
       if (carPos.current.y > groundY - carHeight) {
@@ -69,11 +63,9 @@ export function CarGame() {
         carPos.current.isJumping = false;
       }
 
-      // Spawn obstacles based on distance
-      if (distanceTraveled.current >= nextObstacleAt.current) {
+      // Spawn obstacles
+      if (frameCount.current % 120 === 0) {
         obstacles.current.push({ x: canvas.width, type: Math.random() > 0.5 ? 'cone' : 'pothole' });
-        // Random distance between 250 and 450 pixels for the next obstacle
-        nextObstacleAt.current = distanceTraveled.current + 250 + Math.random() * 200;
       }
 
       // Update obstacles
@@ -85,17 +77,17 @@ export function CarGame() {
       if (obstacles.current.length > 0 && obstacles.current[0].x < -obstacleWidth) {
         obstacles.current.shift();
         setScore(s => s + 1);
-        speed.current = Math.min(speed.current * 1.15, 12); // Slightly more conservative speed increase
+        speed.current = Math.min(speed.current * 1.2, 15); // Speed up by 1.2x after passing obstacle
       }
 
       // Collision detection
       const car = carPos.current;
       for (const obs of obstacles.current) {
-        // Tighter collision box for better feel
         if (
-          car.x + 10 < obs.x + obstacleWidth - 10 &&
-          car.x + carWidth - 10 > obs.x + 10 &&
-          car.y + carHeight > groundY - obstacleHeight + 5
+          car.x < obs.x + obstacleWidth - 5 &&
+          car.x + carWidth - 5 > obs.x &&
+          car.y < groundY &&
+          car.y + carHeight > groundY - obstacleHeight
         ) {
           setGameState('gameover');
         }
